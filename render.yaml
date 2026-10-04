@@ -1,1 +1,9 @@
-
+services:
+  - type: web
+    name: tg-user-osint-tuku
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: TARGET_API_URL
+        sync: false
