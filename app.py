@@ -1,23 +1,20 @@
 import os
+import json
+import re
 from flask import Flask, request, jsonify
+import cloudscraper
 import httpx
 
 app = Flask(__name__)
 
-# Load target API base URL from environment variables (set in Render)
 TARGET_API_BASE = os.environ.get("TARGET_API_URL", "")
 
 @app.route('/health', methods=['GET', 'HEAD'])
 def health_check():
-    """
-    UptimeRobot will ping this endpoint every 5 minutes.
-    Returns 200 OK to keep the Render instance awake.
-    """
     return "", 200
 
 @app.route('/api', methods=['GET'])
 def proxy_api():
-    # Extract the 'num' parameter sent by your Telegram bot
     num = request.args.get('num')
     
     if not num:
@@ -26,35 +23,46 @@ def proxy_api():
     if not TARGET_API_BASE:
         return jsonify({"error": "Server configuration error: Target API URL is missing."}), 500
 
-    # Build the full target URL securely
-    # Assuming TARGET_API_BASE ends with "=" or "&num="
+    # Build target URL
     if TARGET_API_BASE.endswith("=") or TARGET_API_BASE.endswith("&"):
         target_url = f"{TARGET_API_BASE}{num}"
     else:
         target_url = f"{TARGET_API_BASE}{num}"
 
-    # Browser headers to help bypass basic blocks
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept": "application/json, text/plain, */*",
-        "Accept-Language": "en-US,en;q=0.9"
-    }
-
+    # --- STRATEGY 1: Use CloudScraper (Bypasses JS challenges) ---
     try:
-        # Fetch data from the hidden target API
-        response = httpx.get(target_url, headers=headers, timeout=15, follow_redirects=True)
+        scraper = cloudscraper.create_scraper(
+            browser={
+                'browser': 'chrome',
+                'platform': 'windows',
+                'desktop': True
+            }
+        )
+        response = scraper.get(target_url, timeout=20)
         
-        # Detect anti-bot HTML challenge
-        if "<html" in response.text.lower() or "<!doctype" in response.text.lower():
-            return jsonify({"error": "Blocked by target anti-bot (HTML challenge)"}), 503
-            
-        # Return the JSON data back to your Telegram bot
-        return jsonify(response.json())
-
+        if response.status_code == 200 and "<html" not in response.text.lower():
+            return jsonify(response.json())
     except Exception as e:
-        return jsonify({"error": f"Proxy error: {str(e)}"}), 500
+        pass # Move to fallback
+
+    # --- STRATEGY 2: Use Jina.ai Reader (Executes JS and returns text) ---
+    try:
+        jina_url = f"https://r.jina.ai/{target_url}"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        response = httpx.get(jina_url, headers=headers, timeout=25)
+        
+        if response.status_code == 200:
+            # Jina returns Markdown. We extract the JSON block from it.
+            match = re.search(r'\{.*\}', response.text, re.DOTALL)
+            if match:
+                json_data = json.loads(match.group(0))
+                return jsonify(json_data)
+    except Exception as e:
+        pass
+
+    # --- FAILED ---
+    return jsonify({"error": "Blocked by target anti-bot. Both CloudScraper and Jina fallback failed."}), 503
 
 if __name__ == '__main__':
-    # Render requires binding to 0.0.0.0 and the assigned PORT
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
