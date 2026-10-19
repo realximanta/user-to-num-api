@@ -17,8 +17,14 @@ YOUR_POWERED_BY_URL = "https://t.me/tukuexe"
 # ============================================================
 # ENV
 # ============================================================
-TARGET_API_BASE = os.environ.get("TARGET_API_URL", "")
+# Strictly relying on environment variables now. No hardcoded APIs.
+TARGET_NUM2INFO = os.environ.get("TARGET_NUM2INFO")
+TARGET_TG2NUM   = os.environ.get("TARGET_TG2NUM")
 
+# Global Cloudscraper session (solves challenge once, reuses cookies)
+scraper = cloudscraper.create_scraper(
+    browser={'browser': 'chrome', 'platform': 'windows', 'desktop': True}
+)
 
 # ============================================================
 # ROOT — Landing page for visitors
@@ -44,7 +50,7 @@ def landing():
     padding: 20px;
   }}
   .card {{
-    max-width: 520px;
+    max-width: 620px;
     width: 100%;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -66,42 +72,25 @@ def landing():
     letter-spacing: 1px;
     margin-bottom: 20px;
   }}
-  h1 {{
-    font-size: 26px;
-    font-weight: 700;
-    margin-bottom: 8px;
-    background: linear-gradient(90deg, #fff, #9f9fff);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }}
-  .sub {{
-    color: #888;
-    font-size: 14px;
-    margin-bottom: 32px;
-  }}
-  .row {{
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 14px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  h1 {{ font-size: 26px; font-weight: 700; margin-bottom: 8px; color: #fff; }}
+  .sub {{ color: #888; font-size: 14px; margin-bottom: 24px; }}
+  .endpoint {{
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 16px;
+    border-radius: 10px;
+    margin-bottom: 16px;
     text-align: left;
-    font-size: 14px;
   }}
+  .endpoint h3 {{ color: #7fa8ff; font-size: 16px; margin-bottom: 8px; }}
+  .endpoint code {{ color: #00ff80; word-break: break-all; font-size: 13px; }}
+  .endpoint .desc {{ color: #aaa; font-size: 12px; margin-top: 6px; }}
+  .row {{ display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 14px; }}
   .row:last-of-type {{ border-bottom: none; }}
   .label {{ color: #888; }}
   .value {{ color: #fff; font-weight: 500; }}
-  .value a {{
-    color: #7fa8ff;
-    text-decoration: none;
-  }}
-  .value a:hover {{ text-decoration: underline; }}
-  .footer {{
-    margin-top: 28px;
-    font-size: 12px;
-    color: #555;
-  }}
+  .value a {{ color: #7fa8ff; text-decoration: none; }}
+  .footer {{ margin-top: 28px; font-size: 12px; color: #555; }}
 </style>
 </head>
 <body>
@@ -109,6 +98,18 @@ def landing():
     <div class="badge">● ONLINE</div>
     <h1>OSINT Proxy API</h1>
     <p class="sub">Secure data-fetching middleware</p>
+
+    <div class="endpoint">
+      <h3>📱 Num2Info API</h3>
+      <code>GET /api/num2info?num=123456789</code>
+      <div class="desc">Fetches mobile number details.</div>
+    </div>
+
+    <div class="endpoint">
+      <h3>💬 TG2Num API</h3>
+      <code>GET /api/tg2num?query=1234567890</code>
+      <div class="desc">Fetches Telegram ID from a 10-digit number.</div>
+    </div>
 
     <div class="row">
       <span class="label">Owner</span>
@@ -143,88 +144,106 @@ def health_check():
 
 
 # ============================================================
-# API — proxy endpoint
+# Helpers
 # ============================================================
 def _brand_response(data: dict) -> dict:
-    """
-    Overwrite branding fields and strip sensitive sections
-    so the bot (and anyone inspecting traffic) only ever sees
-    YOUR identity.
-    """
+    """Strips sensitive target API info and forces our branding."""
     if not isinstance(data, dict):
         return data
 
-    # --- Force your branding ---
     data["owner"]             = YOUR_OWNER
     data["powered_by"]        = YOUR_POWERED_BY
     data["powered_by_store"]  = YOUR_POWERED_BY_URL
 
-    # --- Remove anything sensitive / not yours ---
-    for junk_key in (
-        "key_info", "key", "Key", "api_key", "expires",
-        "limit", "remaining", "used", "credits",
-    ):
+    # Remove sensitive target keys
+    for junk_key in ("key_info", "key", "Key", "api_key", "expires", "limit", "remaining", "used", "credits"):
         data.pop(junk_key, None)
 
-    # --- Keep these clean defaults if missing ---
     data.setdefault("success", True)
     data.setdefault("version", "69")
-    data.setdefault("time", "1.0s")
-
     return data
 
 
-@app.route('/api', methods=['GET'])
-def proxy_api():
-    num = request.args.get('num')
-
-    if not num:
-        return jsonify({"error": "Missing 'num' parameter"}), 400
-
-    if not TARGET_API_BASE:
-        return jsonify({"error": "Server configuration error."}), 500
-
-    # Build the target URL
-    if TARGET_API_BASE.endswith("=") or TARGET_API_BASE.endswith("&"):
-        target_url = f"{TARGET_API_BASE}{num}"
-    else:
-        target_url = f"{TARGET_API_BASE}{num}"
-
-    # ---------- Strategy 1: Cloudscraper ----------
+def _fetch_with_fallback(target_url: str):
+    """
+    Attempts to fetch the target URL using cloudscraper, 
+    then Jina.ai. Returns parsed JSON or raises Exception.
+    """
+    # Strategy 1: Cloudscraper (persistent session)
     try:
-        scraper = cloudscraper.create_scraper(
-            browser={
-                'browser': 'chrome',
-                'platform': 'windows',
-                'desktop': True,
-            }
-        )
         response = scraper.get(target_url, timeout=20)
-
+        # Check if we got HTML (blocked) or JSON
         if response.status_code == 200 and "<html" not in response.text.lower():
-            parsed = response.json()
-            return jsonify(_brand_response(parsed))
+            return response.json()
     except Exception:
-        pass  # fall through to Jina
+        pass  # Fall through to Jina
 
-    # ---------- Strategy 2: Jina.ai Reader ----------
+    # Strategy 2: Jina.ai Reader (bypasses WAF)
     try:
         jina_url = f"https://r.jina.ai/{target_url}"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        response = httpx.get(jina_url, headers=headers, timeout=25)
-
+        response = httpx.get(jina_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=25)
         if response.status_code == 200:
             match = re.search(r'\{.*\}', response.text, re.DOTALL)
             if match:
-                parsed = json.loads(match.group(0))
-                return jsonify(_brand_response(parsed))
+                return json.loads(match.group(0))
     except Exception:
         pass
 
-    # ---------- Both failed ----------
-    return jsonify({
-        "error": "Upstream API temporarily unreachable. Please try again in a moment."
-    }), 503
+    raise Exception("Both cloudscraper and Jina failed to retrieve valid JSON")
+
+
+# ============================================================
+# ENDPOINT 1: Num2Info
+# ============================================================
+@app.route('/api/num2info', methods=['GET'])
+def proxy_num2info():
+    num = request.args.get('num')
+    if not num:
+        return jsonify({"success": False, "error": "Missing 'num' parameter"}), 400
+
+    # Check if ENV is set
+    if not TARGET_NUM2INFO:
+        return jsonify({"success": False, "error": "Server config error: TARGET_NUM2INFO is missing."}), 500
+
+    target_url = f"{TARGET_NUM2INFO}{num}"
+
+    try:
+        parsed = _fetch_with_fallback(target_url)
+        return jsonify(_brand_response(parsed))
+    except Exception as e:
+        # HARD FAIL-SAFE: Guarantee JSON error, never HTML
+        return jsonify({
+            "success": False,
+            "error": "Upstream API temporarily unreachable. Please try again.",
+            "debug": str(e)
+        }), 503
+
+
+# ============================================================
+# ENDPOINT 2: TG2Num
+# ============================================================
+@app.route('/api/tg2num', methods=['GET'])
+def proxy_tg2num():
+    query = request.args.get('query')
+    if not query:
+        return jsonify({"success": False, "error": "Missing 'query' parameter"}), 400
+
+    # Check if ENV is set
+    if not TARGET_TG2NUM:
+        return jsonify({"success": False, "error": "Server config error: TARGET_TG2NUM is missing."}), 500
+
+    target_url = f"{TARGET_TG2NUM}{query}"
+
+    try:
+        parsed = _fetch_with_fallback(target_url)
+        return jsonify(_brand_response(parsed))
+    except Exception as e:
+        # HARD FAIL-SAFE: Guarantee JSON error, never HTML
+        return jsonify({
+            "success": False,
+            "error": "Upstream API temporarily unreachable. Please try again.",
+            "debug": str(e)
+        }), 503
 
 
 if __name__ == '__main__':
