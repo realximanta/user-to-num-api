@@ -5,5 +5,7 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
-      - key: TARGET_API_URL
+      - key: TARGET_NUM2INFO
+        sync: false
+      - key: TARGET_TG2NUM
         sync: false
