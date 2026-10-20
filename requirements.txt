@@ -1,4 +1,4 @@
 Flask
 httpx
-cloudscraper
+infinityfree
 gunicorn
