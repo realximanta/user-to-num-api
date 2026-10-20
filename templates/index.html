@@ -1,19 +1,17 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" class="dark scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OSINT Proxy API | {{ owner }}</title>
+    <meta name="description" content="Ultimate OSINT Proxy API. Bypassing WAFs seamlessly to fetch Telegram and Mobile number data.">
     
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
-    
-    <!-- FontAwesome Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Tailwind CSS -->
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -21,14 +19,18 @@
             theme: {
                 extend: {
                     fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        mono: ['"Fira Code"', 'monospace'],
+                        sans: ['Outfit', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
                     },
                     colors: {
                         brand: {
-                            400: '#60a5fa',
-                            500: '#3b82f6',
-                            600: '#2563eb',
+                            400: '#818cf8',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                        },
+                        accent: {
+                            400: '#c084fc',
+                            500: '#a855f7',
                         }
                     }
                 }
@@ -37,226 +39,294 @@
     </script>
 
     <style>
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #0f0f1a; }
-        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #555; }
-
-        /* Particle Container */
+        body { background-color: #050505; overflow-x: hidden; }
+        .bg-grid {
+            background-size: 40px 40px;
+            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
+            -webkit-mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
+        }
         #tsparticles {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
             pointer-events: none;
         }
-
-        /* Glow Effects */
-        .glow-text {
-            text-shadow: 0 0 20px rgba(96, 165, 250, 0.5);
-        }
+        .glow-text { text-shadow: 0 0 30px rgba(99, 102, 241, 0.5); }
         .glass-card {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            background: rgba(15, 15, 20, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
         }
-        
-        /* Typing cursor */
-        .typed-cursor {
-            color: #60a5fa;
-            font-weight: bold;
-        }
+        .terminal-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .terminal-scroll::-webkit-scrollbar-track { background: #000; }
+        .terminal-scroll::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        .terminal-scroll::-webkit-scrollbar-thumb:hover { background: #555; }
+        .typed-cursor { color: #818cf8; font-weight: bold; }
     </style>
 </head>
-<body class="bg-[#09090b] text-gray-200 font-sans antialiased min-h-screen flex items-center justify-center p-4 overflow-x-hidden selection:bg-brand-500/30">
+<body class="text-gray-300 font-sans antialiased selection:bg-brand-500/30 relative">
 
-    <!-- Floating Particles Background -->
+    <div class="fixed inset-0 bg-grid z-[-2]"></div>
     <div id="tsparticles"></div>
 
-    <!-- Main Container -->
-    <div class="relative z-10 w-full max-w-4xl glass-card rounded-2xl p-6 md:p-10 my-8">
-        
-        <!-- Header Section -->
-        <div class="text-center mb-10">
-            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-sm font-semibold tracking-wide mb-6 shadow-[0_0_15px_rgba(34,197,94,0.2)]">
-                <span class="relative flex h-2.5 w-2.5">
-                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+    <nav class="fixed w-full top-0 z-50 glass-card border-b border-white/5 transition-all duration-300" id="navbar">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-3 font-bold text-xl text-white">
+                <i class="fa-solid fa-shield-halved text-brand-400"></i>
+                <span>OSINT<span class="text-brand-400">Proxy</span></span>
+            </div>
+            <div class="flex items-center gap-6 text-sm font-medium">
+                <a href="#docs" class="hover:text-brand-400 transition-colors hidden md:block">Documentation</a>
+                <a href="{{ powered_by_url }}" target="_blank" class="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-full border border-white/10 transition-all text-white">
+                    <i class="fa-brands fa-telegram text-blue-400"></i> Store
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="min-h-screen flex flex-col items-center justify-center pt-20 px-6 relative z-10">
+        <div data-aos="fade-up" data-aos-duration="1000" class="text-center max-w-3xl">
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 text-xs font-semibold tracking-widest uppercase mb-8 shadow-[0_0_20px_rgba(99,102,241,0.2)]">
+                <span class="relative flex h-2 w-2">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-brand-500"></span>
                 </span>
-                SYSTEM ONLINE
+                System Operational
             </div>
             
-            <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mb-4 text-white glow-text">
-                OSINT Proxy <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-400 to-purple-500">API</span>
+            <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 text-white glow-text">
+                The Ultimate <br/>
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-400 to-accent-400">OSINT API</span>
             </h1>
             
-            <div class="text-lg text-gray-400 h-8 font-medium">
+            <div class="text-lg md:text-xl text-gray-400 mb-10 h-10 font-medium font-mono">
                 <span id="typed-text"></span>
             </div>
-        </div>
 
-        <!-- Endpoints Section -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-            
-            <!-- Endpoint 1 -->
-            <div class="group relative rounded-xl p-[1px] bg-gradient-to-b from-white/10 to-transparent hover:from-brand-500/50 transition-colors duration-300">
-                <div class="relative bg-[#121214] rounded-xl p-5 h-full flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center gap-3 mb-3">
-                            <div class="p-2 bg-blue-500/10 rounded-lg text-blue-400">
-                                <i class="fa-solid fa-mobile-screen text-xl"></i>
-                            </div>
-                            <h3 class="text-lg font-bold text-white">Num2Info API</h3>
-                        </div>
-                        <p class="text-sm text-gray-400 mb-4">Fetches mobile number details and carrier information.</p>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <a href="#tester" class="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-semibold transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:shadow-[0_0_30px_rgba(99,102,241,0.6)] flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-terminal"></i> Test API Live
+                </a>
+                <a href="#docs" class="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-book"></i> View Docs
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <section id="tester" class="py-24 px-6 relative z-10">
+        <div class="max-w-4xl mx-auto" data-aos="fade-up">
+            <div class="text-center mb-10">
+                <h2 class="text-3xl font-bold text-white mb-4">Live API Tester</h2>
+                <p class="text-gray-400">Test the endpoints directly from your browser.</p>
+            </div>
+
+            <div class="glass-card rounded-2xl p-1 overflow-hidden shadow-2xl">
+                <div class="bg-[#121214] p-6 border-b border-white/5 flex flex-col md:flex-row gap-4 items-end">
+                    <div class="flex-1 w-full">
+                        <label class="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider">Select Endpoint</label>
+                        <select id="endpointSelect" class="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-brand-500 transition-colors appearance-none">
+                            <option value="num2info">Num2Info (Mobile Number)</option>
+                            <option value="tg2num">TG2Num (Telegram Query)</option>
+                        </select>
                     </div>
+                    <div class="flex-1 w-full">
+                        <label class="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider">Parameter</label>
+                        <input type="text" id="queryInput" placeholder="Enter number (e.g. 123456789)" class="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-brand-500 transition-colors font-mono">
+                    </div>
+                    <button onclick="runTest()" id="testBtn" class="w-full md:w-auto px-8 py-3 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-semibold transition-all flex items-center justify-center gap-2 h-[50px]">
+                        <i class="fa-solid fa-play" id="testBtnIcon"></i> <span id="testBtnText">Send</span>
+                    </button>
+                </div>
+
+                <div class="bg-[#0a0a0c] p-6 relative">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-3 h-3 rounded-full bg-red-500/80"></div>
+                        <div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+                        <div class="w-3 h-3 rounded-full bg-green-500/80"></div>
+                        <span class="ml-2 text-xs font-mono text-gray-500">Response Output</span>
+                    </div>
+                    <pre class="terminal-scroll overflow-auto max-h-[400px] text-sm font-mono text-green-400"><code id="terminalOutput">// Waiting for request...</code></pre>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="docs" class="py-24 px-6 relative z-10">
+        <div class="max-w-5xl mx-auto">
+            <div class="text-center mb-12" data-aos="fade-up">
+                <h2 class="text-3xl font-bold text-white mb-4">API Documentation</h2>
+                <p class="text-gray-400">Direct endpoints. Ready for production.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                
+                <div class="glass-card rounded-xl p-6 group hover:border-brand-500/50 transition-colors duration-300" data-aos="fade-right">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="p-3 bg-brand-500/10 rounded-lg text-brand-400 group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-mobile-screen text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-white">Num2Info</h3>
+                            <p class="text-xs text-gray-400 font-mono">GET /api/num2info</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-400 mb-6">Fetches mobile number details, carrier, and location information.</p>
                     
-                    <div class="relative">
-                        <div class="flex items-center justify-between bg-black/50 border border-white/10 rounded-lg p-3 font-mono text-xs md:text-sm text-green-400 overflow-x-auto whitespace-nowrap">
-                            <span>https://tg-osint.ximanta.xyz/api/num2info?num=123456789</span>
-                            <button onclick="copyToClipboard('https://tg-osint.ximanta.xyz/api/num2info?num=123456789', this)" class="ml-3 text-gray-400 hover:text-white transition-colors" title="Copy URL">
-                                <i class="fa-regular fa-copy"></i>
-                            </button>
-                        </div>
+                    <div class="bg-black/50 border border-white/10 rounded-lg p-3 font-mono text-xs text-brand-300 flex justify-between items-center">
+                        <span class="truncate pr-4">https://tg-osint.ximanta.xyz/api/num2info?num=123456789</span>
+                        <button onclick="copyToClipboard('https://tg-osint.ximanta.xyz/api/num2info?num=123456789', this)" class="text-gray-400 hover:text-white transition-colors p-2" title="Copy URL">
+                            <i class="fa-regular fa-copy"></i>
+                        </button>
                     </div>
                 </div>
-            </div>
 
-            <!-- Endpoint 2 -->
-            <div class="group relative rounded-xl p-[1px] bg-gradient-to-b from-white/10 to-transparent hover:from-purple-500/50 transition-colors duration-300">
-                <div class="relative bg-[#121214] rounded-xl p-5 h-full flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center gap-3 mb-3">
-                            <div class="p-2 bg-purple-500/10 rounded-lg text-purple-400">
-                                <i class="fa-brands fa-telegram text-xl"></i>
-                            </div>
-                            <h3 class="text-lg font-bold text-white">TG2Num API</h3>
+                <div class="glass-card rounded-xl p-6 group hover:border-accent-500/50 transition-colors duration-300" data-aos="fade-left">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="p-3 bg-accent-500/10 rounded-lg text-accent-400 group-hover:scale-110 transition-transform">
+                            <i class="fa-brands fa-telegram text-2xl"></i>
                         </div>
-                        <p class="text-sm text-gray-400 mb-4">Resolves Telegram user IDs from 10-digit phone numbers.</p>
+                        <div>
+                            <h3 class="text-xl font-bold text-white">TG2Num</h3>
+                            <p class="text-xs text-gray-400 font-mono">GET /api/tg2num</p>
+                        </div>
                     </div>
+                    <p class="text-sm text-gray-400 mb-6">Resolves Telegram user IDs and metadata from 10-digit phone numbers.</p>
                     
-                    <div class="relative">
-                        <div class="flex items-center justify-between bg-black/50 border border-white/10 rounded-lg p-3 font-mono text-xs md:text-sm text-green-400 overflow-x-auto whitespace-nowrap">
-                            <span>https://tg-osint.ximanta.xyz/api/tg2num?query=1234567890</span>
-                            <button onclick="copyToClipboard('https://tg-osint.ximanta.xyz/api/tg2num?query=1234567890', this)" class="ml-3 text-gray-400 hover:text-white transition-colors" title="Copy URL">
-                                <i class="fa-regular fa-copy"></i>
-                            </button>
-                        </div>
+                    <div class="bg-black/50 border border-white/10 rounded-lg p-3 font-mono text-xs text-accent-300 flex justify-between items-center">
+                        <span class="truncate pr-4">https://tg-osint.ximanta.xyz/api/tg2num?query=1234567890</span>
+                        <button onclick="copyToClipboard('https://tg-osint.ximanta.xyz/api/tg2num?query=1234567890', this)" class="text-gray-400 hover:text-white transition-colors p-2" title="Copy URL">
+                            <i class="fa-regular fa-copy"></i>
+                        </button>
                     </div>
                 </div>
-            </div>
 
-        </div>
-
-        <!-- Footer Info -->
-        <div class="border-t border-white/10 pt-6">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center md:text-left">
-                <div>
-                    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Owner</p>
-                    <p class="font-medium text-white">{{ owner }}</p>
-                </div>
-                <div>
-                    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Powered By</p>
-                    <p class="font-medium text-white">{{ powered_by }}</p>
-                </div>
-                <div>
-                    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Store</p>
-                    <a href="{{ powered_by_url }}" target="_blank" class="font-medium text-brand-400 hover:text-brand-300 transition-colors inline-flex items-center gap-1">
-                        Telegram <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-                    </a>
-                </div>
-                <div>
-                    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Version</p>
-                    <p class="font-medium text-white">v69</p>
-                </div>
-            </div>
-            
-            <div class="text-center mt-8 text-xs text-gray-600">
-                &copy; 2026 {{ owner }} — All rights reserved.
             </div>
         </div>
+    </section>
 
-    </div>
+    <footer class="border-t border-white/10 py-10 relative z-10 bg-[#050505]/80 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="flex items-center gap-4">
+                <span class="text-sm text-gray-400">© 2026 <strong class="text-white">{{ owner }}</strong>. All rights reserved.</span>
+            </div>
+            <div class="flex items-center gap-6 text-sm text-gray-400">
+                <span>Powered by <strong class="text-white">{{ powered_by }}</strong></span>
+                <span class="px-2 py-1 bg-white/5 rounded border border-white/10 text-xs font-mono text-brand-400">v69</span>
+            </div>
+        </div>
+    </footer>
 
-    <!-- Typed.js for Typing Animation -->
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/typed.js@2.0.12"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tsparticles@2.12.0/tsparticles.bundle.min.js"></script>
+
     <script>
-        var typed = new Typed('#typed-text', {
+        AOS.init({ once: true, offset: 50 });
+
+        new Typed('#typed-text', {
             strings: [
-                'Secure Data-Fetching Middleware.',
-                'Bypassing WAFs Seamlessly.',
+                'Bypassing WAFs seamlessly.',
                 'High-Speed OSINT Proxy.',
-                'Reliable JSON Responses.'
+                'Clean & Reliable JSON.',
+                'Secured by Cloudscraper & Jina.'
             ],
-            typeSpeed: 50,
-            backSpeed: 30,
+            typeSpeed: 40,
+            backSpeed: 20,
             backDelay: 2000,
             loop: true
         });
-    </script>
 
-    <!-- tsParticles for Floating Network Background -->
-    <script src="https://cdn.jsdelivr.net/npm/tsparticles@2.12.0/tsparticles.bundle.min.js"></script>
-    <script>
         tsParticles.load("tsparticles", {
             fpsLimit: 60,
             interactivity: {
-                events: {
-                    onHover: { enable: true, mode: "grab" },
-                    resize: true
-                },
-                modes: {
-                    grab: { distance: 140, links: { opacity: 0.5 } }
-                }
+                events: { onHover: { enable: true, mode: "grab" }, resize: true },
+                modes: { grab: { distance: 150, links: { opacity: 0.4 } } }
             },
             particles: {
-                color: { value: "#3b82f6" }, // Brand blue color
-                links: {
-                    color: "#3b82f6",
-                    distance: 150,
-                    enable: true,
-                    opacity: 0.2,
-                    width: 1
-                },
-                move: {
-                    direction: "none",
-                    enable: true,
-                    outModes: { default: "bounce" },
-                    random: false,
-                    speed: 1,
-                    straight: false
-                },
-                number: {
-                    density: { enable: true, area: 800 },
-                    value: 60
-                },
-                opacity: { value: 0.3 },
+                color: { value: ["#6366f1", "#a855f7"] },
+                links: { color: "#6366f1", distance: 150, enable: true, opacity: 0.15, width: 1 },
+                move: { direction: "none", enable: true, outModes: { default: "bounce" }, random: false, speed: 1.2, straight: false },
+                number: { density: { enable: true, area: 800 }, value: 80 },
+                opacity: { value: 0.5 },
                 shape: { type: "circle" },
                 size: { value: { min: 1, max: 3 } }
             },
             detectRetina: true
         });
-    </script>
 
-    <!-- Copy to Clipboard Script -->
-    <script>
         function copyToClipboard(text, btnElement) {
             navigator.clipboard.writeText(text).then(() => {
                 const icon = btnElement.querySelector('i');
                 icon.className = 'fa-solid fa-check text-green-500';
-                setTimeout(() => {
-                    icon.className = 'fa-regular fa-copy';
-                }, 2000);
-            }).catch(err => {
-                console.error('Failed to copy: ', err);
+                setTimeout(() => { icon.className = 'fa-regular fa-copy'; }, 2000);
             });
         }
-    </script>
 
+        async function runTest() {
+            const endpoint = document.getElementById('endpointSelect').value;
+            const inputVal = document.getElementById('queryInput').value.trim();
+            const output = document.getElementById('terminalOutput');
+            const btn = document.getElementById('testBtn');
+            const btnIcon = document.getElementById('testBtnIcon');
+            const btnText = document.getElementById('testBtnText');
+
+            if (!inputVal) {
+                output.innerHTML = '<span class="text-red-400">// Error: Please enter a parameter.</span>';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.classList.add('opacity-75', 'cursor-not-allowed');
+            btnIcon.className = 'fa-solid fa-spinner fa-spin';
+            btnText.innerText = 'Testing...';
+            output.innerHTML = '<span class="text-gray-500">// Fetching...</span>';
+
+            const paramName = endpoint === 'num2info' ? 'num' : 'query';
+            const url = `/api/${endpoint}?${paramName}=${encodeURIComponent(inputVal)}`;
+
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                
+                output.innerHTML = `<span class="text-blue-400">// HTTP ${res.status} ${res.statusText}</span>\n` + 
+                                   JSON.stringify(data, null, 4)
+                                     .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                                        let cls = 'text-yellow-300';
+                                        if (/^"/.test(match)) {
+                                            if (/:$/.test(match)) {
+                                                cls = 'text-brand-300';
+                                            } else {
+                                                cls = 'text-green-400';
+                                            }
+                                        } else if (/true|false/.test(match)) {
+                                            cls = 'text-accent-400';
+                                        } else if (/null/.test(match)) {
+                                            cls = 'text-gray-500';
+                                        }
+                                        return '<span class="' + cls + '">' + match + '</span>';
+                                    });
+            } catch (err) {
+                output.innerHTML = `<span class="text-red-400">// Network Error:\n${err.message}</span>`;
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('opacity-75', 'cursor-not-allowed');
+                btnIcon.className = 'fa-solid fa-play';
+                btnText.innerText = 'Send';
+            }
+        }
+
+        window.addEventListener('scroll', () => {
+            const nav = document.getElementById('navbar');
+            if (window.scrollY > 20) {
+                nav.classList.add('bg-[#050505]/90', 'shadow-lg');
+            } else {
+                nav.classList.remove('bg-[#050505]/90', 'shadow-lg');
+            }
+        });
+    </script>
 </body>
 </html>
